@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#C4A882"/>
+  <text x="256" y="200" text-anchor="middle" font-size="120" font-family="sans-serif" fill="#FFF" font-weight="800">Life</text>
+  <text x="256" y="340" text-anchor="middle" font-size="100" font-family="sans-serif" fill="#FFF" font-weight="700">計測</text>
+  <circle cx="256" cy="420" r="30" fill="rgba(255,255,255,0.3)"/>
+  <text x="256" y="432" text-anchor="middle" font-size="30" font-family="sans-serif" fill="#FFF">♡</text>
+</svg>

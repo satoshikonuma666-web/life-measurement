@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Life計測">
+  <meta name="theme-color" content="#C4A882">
+  <title>Life計測</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ════════ HOME ════════ -->
+  <div id="page-home" class="page active">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Life計測</div>
+        <div class="page-subtitle">日々の記録</div>
+      </div>
+    </div>
+    <div class="home-content">
+      <div id="shin-card" class="shin-card"></div>
+      <div class="card">
+        <div class="card-title">📊 カテゴリ別</div>
+        <div id="cat-grid" class="cat-grid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚡ 次のアクション</div>
+        <div id="next-actions"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 目標</div>
+        <div id="upcoming-goals"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ CALENDAR ════════ -->
+  <div id="page-calendar" class="page">
+    <div class="page-header">
+      <div class="page-title">カレンダー</div>
+    </div>
+    <div class="calendar-content">
+      <div class="calendar-nav">
+        <button class="calendar-nav-btn" onclick="calendarPrev()">‹</button>
+        <div id="calendar-month-label" class="calendar-month-label"></div>
+        <button class="calendar-nav-btn" onclick="calendarNext()">›</button>
+      </div>
+      <div id="calendar-grid" class="calendar-grid"></div>
+      <div class="calendar-legend">
+        <span><span class="legend-dot" style="background:var(--excellent)"></span>75+</span>
+        <span><span class="legend-dot" style="background:var(--good)"></span>50+</span>
+        <span><span class="legend-dot" style="background:var(--fair)"></span>25+</span>
+        <span><span class="legend-dot" style="background:var(--poor)"></span>0+</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ STATS ════════ -->
+  <div id="page-stats" class="page">
+    <div class="page-header">
+      <div class="page-title">統計</div>
+    </div>
+    <div class="stats-content">
+      <div class="stats-period-tabs">
+        <button class="stats-period-tab active" data-period="7d" onclick="setStatsPeriod('7d')">7日間</button>
+        <button class="stats-period-tab" data-period="30d" onclick="setStatsPeriod('30d')">30日間</button>
+        <button class="stats-period-tab" data-period="90d" onclick="setStatsPeriod('90d')">90日間</button>
+      </div>
+      <div id="stats-summary" class="stats-summary-grid"></div>
+      <div class="card">
+        <div class="card-title">📊 カテゴリ別スコア</div>
+        <div id="stats-bars" class="stats-bar-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ GOALS ════════ -->
+  <div id="page-goals" class="page">
+    <div class="page-header">
+      <div class="page-title">目標</div>
+      <button class="modal-save-btn" onclick="openGoalNew()">＋ 追加</button>
+    </div>
+    <div class="goals-content">
+      <div id="goals-list"></div>
+    </div>
+  </div>
+
+  <!-- ════════ SETTINGS ════════ -->
+  <div id="page-settings" class="page">
+    <div class="page-header">
+      <div class="page-title">設定</div>
+    </div>
+    <div class="settings-content">
+      <div class="settings-group">
+        <div class="settings-item" onclick="exportData()">
+          <div class="settings-item-left">
+            <div class="settings-icon" style="background:#E8DDD0">💾</div>
+            <div class="settings-item-label">データをエクスポート</div>
+          </div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+        <div class="settings-item" onclick="importData()">
+          <div class="settings-item-left">
+            <div class="settings-icon" style="background:#D4E8D4">📥</div>
+            <div class="settings-item-label">データをインポート</div>
+          </div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-item">
+          <div class="settings-item-left">
+            <div class="settings-icon" style="background:#E0D4F0">ℹ️</div>
+            <div class="settings-item-label">バージョン</div>
+          </div>
+          <div style="color:var(--text3);font-size:13px">1.0.0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ FAB Button ════════ -->
+  <div class="record-fab">
+    <button class="record-fab-btn" onclick="openRecordModal()">＋</button>
+  </div>
+
+  <!-- ════════ Tab Bar ════════ -->
+  <nav class="tab-bar">
+    <button class="tab-item active" data-page="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
+      <span>ホーム</span>
+    </button>
+    <button class="tab-item" data-page="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>カレンダー</span>
+    </button>
+    <button class="tab-item" data-page="stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <span>統計</span>
+    </button>
+    <button class="tab-item" data-page="goals">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <span>目標</span>
+    </button>
+    <button class="tab-item" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span>設定</span>
+    </button>
+  </nav>
+
+  <!-- ════════ RECORD MODAL ════════ -->
+  <div id="record-modal" class="modal-overlay" onclick="if(event.target===this)closeRecordModal()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close-btn" onclick="closeRecordModal()">✕</button>
+        <div class="record-date-nav">
+          <button class="record-arrow-btn" onclick="recordGoDay(-1)">‹</button>
+          <div id="record-date-text" class="record-date-text"></div>
+          <button class="record-arrow-btn" onclick="recordGoDay(1)">›</button>
+        </div>
+        <button class="modal-save-btn" onclick="saveRecordData()">保存</button>
+      </div>
+      <div class="modal-body" id="record-body"></div>
+    </div>
+  </div>
+
+  <!-- ════════ GOAL NEW MODAL ════════ -->
+  <div id="goal-new-modal" class="modal-overlay" onclick="if(event.target===this)closeGoalNew()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close-btn" onclick="closeGoalNew()">✕</button>
+        <div class="modal-header-title">新しい目標</div>
+        <button class="modal-save-btn" onclick="saveGoalNew()">保存</button>
+      </div>
+      <div class="modal-body" id="goal-new-body"></div>
+    </div>
+  </div>
+
+  <!-- ════════ GOAL DETAIL MODAL ════════ -->
+  <div id="goal-detail-modal" class="modal-overlay" onclick="if(event.target===this)closeGoalDetail()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close-btn" onclick="closeGoalDetail()">✕</button>
+        <div class="modal-header-title">目標の詳細</div>
+        <div style="width:60px"></div>
+      </div>
+      <div class="modal-body" id="goal-detail-body"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
