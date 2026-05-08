@@ -122,15 +122,23 @@ async function renderNextActions() {
     el.innerHTML = '<div class="empty-state"><div class="empty-state-text">進行中の目標はありません</div></div>';
     return;
   }
-  el.innerHTML = actions.map(a => `
+  el.innerHTML = actions.map(a => {
+    const days = getDaysUntil(a.deadline);
+    const daysText = days < 0 ? `${Math.abs(days)}日超過` : days === 0 ? '今日' : `あと${days}日`;
+    const daysColor = days < 0 ? 'var(--warning)' : days <= 3 ? 'var(--warning)' : 'var(--text3)';
+    return `
     <div class="next-action-item">
       <div class="next-action-dot" style="background:${a.color}"></div>
       <div class="next-action-body">
         <div class="next-action-title">${escHtml(a.stepTitle)}</div>
         <div class="next-action-meta">${escHtml(a.goalTitle)} › ${escHtml(a.strategyTitle)}</div>
       </div>
-    </div>
-  `).join('');
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;font-weight:600;color:${daysColor}">${daysText}</div>
+        <div style="font-size:10px;color:var(--text3)">${a.deadline}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function renderUpcomingGoals() {
@@ -638,9 +646,9 @@ function renderGoalNewModal(categories) {
 
   // Scroll wheels to correct position after render
   requestAnimationFrame(() => {
-    scrollWheelTo('wheel-year', newGoalYear - (newGoalYear - 2));
-    if (showMonth) scrollWheelTo('wheel-month', newGoalMonth - 1);
-    if (showDay) scrollWheelTo('wheel-day', Math.min(newGoalDay, daysInMonth) - 1);
+    scrollWheelTo('wheel-year', newGoalYear - (newGoalYear - 2), '年');
+    if (showMonth) scrollWheelTo('wheel-month', newGoalMonth - 1, '月');
+    if (showDay) scrollWheelTo('wheel-day', Math.min(newGoalDay, daysInMonth) - 1, '日');
   });
 }
 
@@ -649,19 +657,27 @@ function renderWheelOptions(start, count, selected, suffix, padZero) {
   for (let i = 0; i < count; i++) {
     const v = start + i;
     const label = padZero ? String(v).padStart(2, '0') : String(v);
-    const sel = v === selected ? 'selected' : '';
-    html += `<div class="wheel-item ${sel}" data-value="${v}">${label}<span class="wheel-suffix">${v === selected ? suffix : ''}</span></div>`;
+    // Don't set selected class here; scrollWheelTo + syncWheelSelection handles it
+    html += `<div class="wheel-item" data-value="${v}">${label}<span class="wheel-suffix"></span></div>`;
   }
   html += '<div style="height:40px"></div>'; // bottom padding
   return html;
 }
 
-function scrollWheelTo(wrapperId, index) {
+function scrollWheelTo(wrapperId, index, suffix) {
   const wrapper = document.getElementById(wrapperId);
   if (!wrapper) return;
   const scroll = wrapper.querySelector('.wheel-scroll');
+  if (!scroll) return;
   // 40px top padding + index * 40px item height
-  if (scroll) scroll.scrollTop = 40 + index * 40;
+  scroll.scrollTop = 40 + index * 40;
+  // Sync selected class to the correct item
+  const items = scroll.querySelectorAll('.wheel-item');
+  items.forEach((item, i) => {
+    item.classList.toggle('selected', i === index);
+    const sfx = item.querySelector('.wheel-suffix');
+    if (sfx) sfx.textContent = i === index ? (suffix || '') : '';
+  });
 }
 
 function onWheelScroll(el, type) {
