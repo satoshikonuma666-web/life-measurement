@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "life-pwa",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3000", "C:\\Users\\Satoshi Konuma\\Documents\\Claude\\Life App\\life-measurement-pwa"],
+      "port": 3000
+    }
+  ]
+}

@@ -11,6 +11,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -108,7 +109,14 @@
         <div class="settings-item" onclick="importData()">
           <div class="settings-item-left">
             <div class="settings-icon" style="background:#D4E8D4">📥</div>
-            <div class="settings-item-label">データをインポート</div>
+            <div class="settings-item-label">JSONインポート</div>
+          </div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+        <div class="settings-item" onclick="importExcelFile()">
+          <div class="settings-item-left">
+            <div class="settings-icon" style="background:#C8E6C9">📊</div>
+            <div class="settings-item-label">Excelインポート（Life計測.xlsx）</div>
           </div>
           <div class="settings-item-arrow">›</div>
         </div>

@@ -915,8 +915,123 @@ async function importData() {
   input.click();
 }
 
-async function importExcel() {
-  alert('Excelインポートは現在HTMLバージョンでは対応していません。\nJSONバックアップをご利用ください。');
+// ── Excel Import (Life計測.xlsx) ──
+// Sheet structure per monthly sheet (e.g. "2025_12"):
+//   Row 1 (idx 1): columns C+ contain Excel serial dates
+//   Row 2 (idx 2): weekday names
+//   Rows 3-21 (idx 3-21): data rows mapped to record fields
+//   Data columns start at C (index 2)
+
+const EXCEL_ROW_MAP = [
+  // [excelRowIndex, recordField, type]
+  [3, 'shin_kokoro', 'number'],
+  [4, 'shin_karada', 'number'],
+  [5, 'shin_atarashii', 'number'],
+  [6, 'relation_aisatsu', 'rating'],
+  [7, 'relation_renraku', 'rating'],
+  [8, 'relation_au', 'rating'],
+  [9, 'sleep_kishou', 'rating'],
+  [10, 'sleep_shushin', 'rating'],
+  [11, 'sleep_jikan', 'number'],
+  [12, 'body_aruku', 'rating'],
+  [13, 'body_kintore', 'rating'],
+  [14, 'body_stretch', 'rating'],
+  [15, 'body_supli', 'rating'],
+  [16, 'body_kouryuu', 'rating'],
+  [17, 'life_dokusho', 'rating'],
+  [18, 'life_eigo', 'rating'],
+  [19, 'life_sumaho', 'rating'],
+  [20, 'life_tv', 'rating'],
+  [21, 'life_shumi', 'rating'],
+];
+
+function excelSerialToDate(serial) {
+  // Excel serial date: days since 1899-12-30 (with 1900 leap year bug)
+  const epoch = new Date(1899, 11, 30);
+  const d = new Date(epoch.getTime() + serial * 86400000);
+  return formatDate(d);
+}
+
+function parseExcelRating(v) {
+  if (v === '◎' || v === '〇' || v === '△' || v === '✕') return v;
+  // Handle possible full-width characters
+  if (v === '○') return '〇';
+  if (v === '×') return '✕';
+  return null;
+}
+
+async function importExcelFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.xlsx,.xls';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+
+      let importCount = 0;
+      let skipCount = 0;
+
+      // Process each monthly sheet (format: "YYYY_M" or "YYYY_MM")
+      for (const sheetName of wb.SheetNames) {
+        // Skip non-monthly sheets
+        if (!sheetName.match(/^\d{4}_\d{1,2}$/)) continue;
+
+        const ws = wb.Sheets[sheetName];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+
+        // Get dates from row 1 (index 1), starting from column C (index 2)
+        const dates = [];
+        for (let c = 2; c <= range.e.c; c++) {
+          const cell = ws[XLSX.utils.encode_cell({ r: 1, c })];
+          if (cell && typeof cell.v === 'number' && cell.v > 40000) {
+            dates.push({ col: c, date: excelSerialToDate(cell.v) });
+          }
+        }
+
+        // For each date column, read all 19 data rows
+        for (const { col, date } of dates) {
+          const record = createEmptyRecord(date);
+          let hasData = false;
+
+          for (const [rowIdx, field, type] of EXCEL_ROW_MAP) {
+            const cell = ws[XLSX.utils.encode_cell({ r: rowIdx, c: col })];
+            if (!cell || cell.v === null || cell.v === undefined || cell.v === '') continue;
+
+            if (type === 'number') {
+              const num = Number(cell.v);
+              if (!isNaN(num)) {
+                record[field] = num;
+                hasData = true;
+              }
+            } else if (type === 'rating') {
+              const rating = parseExcelRating(String(cell.v));
+              if (rating) {
+                record[field] = rating;
+                hasData = true;
+              }
+            }
+          }
+
+          if (hasData) {
+            await saveRecord(record);
+            importCount++;
+          } else {
+            skipCount++;
+          }
+        }
+      }
+
+      alert(`インポート完了！\n${importCount}日分のデータを取り込みました。\n（空の日: ${skipCount}件スキップ）`);
+      showPage(currentPage);
+    } catch (err) {
+      alert('Excelインポートに失敗しました:\n' + err.message);
+      console.error(err);
+    }
+  };
+  input.click();
 }
 
 // ════════════════════════════════
