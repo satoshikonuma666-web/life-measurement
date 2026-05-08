@@ -962,6 +962,7 @@ a { color: inherit; text-decoration: none; }
   height: 100%;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
+  scroll-padding-top: 40px;
   -webkit-overflow-scrolling: touch;
   z-index: 1;
   position: relative;
@@ -1008,6 +1009,101 @@ a { color: inherit; text-decoration: none; }
   font-size: 11px;
   font-weight: 700;
   color: var(--text);
+}
+
+/* ===== Inline Add Form ===== */
+.inline-add-form {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 10px;
+  border: 1.5px solid var(--accent-light);
+}
+.inline-add-form .form-row {
+  margin-bottom: 10px;
+}
+.inline-add-form .form-row:last-child { margin-bottom: 0; }
+.inline-add-form .form-row-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.inline-add-form input,
+.inline-add-form textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+.inline-add-form input:focus,
+.inline-add-form textarea:focus { border-color: var(--accent); }
+.inline-add-form textarea { min-height: 50px; resize: vertical; }
+.inline-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.inline-form-actions button {
+  padding: 7px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn-cancel {
+  background: var(--bg);
+  color: var(--text2);
+  border: 1px solid var(--border);
+}
+.btn-confirm {
+  background: var(--accent);
+  color: #FFF;
+  border: none;
+}
+
+/* Goal edit mode */
+.goal-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.goal-edit-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  min-width: 56px;
+}
+.goal-edit-row input,
+.goal-edit-row textarea,
+.goal-edit-row select {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+.goal-edit-row input:focus,
+.goal-edit-row textarea:focus { border-color: var(--accent); }
+.goal-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.goal-edit-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* ===== Utility ===== */

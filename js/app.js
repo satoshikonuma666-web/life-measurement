@@ -660,18 +660,21 @@ function scrollWheelTo(wrapperId, index) {
   const wrapper = document.getElementById(wrapperId);
   if (!wrapper) return;
   const scroll = wrapper.querySelector('.wheel-scroll');
-  if (scroll) scroll.scrollTop = index * 40;
+  // 40px top padding + index * 40px item height
+  if (scroll) scroll.scrollTop = 40 + index * 40;
 }
 
 function onWheelScroll(el, type) {
-  const idx = Math.round(el.scrollTop / 40);
+  // Account for 40px top padding
+  const idx = Math.round((el.scrollTop - 40) / 40);
   const items = el.querySelectorAll('.wheel-item');
+  const clampedIdx = Math.max(0, Math.min(idx, items.length - 1));
   items.forEach((item, i) => {
-    item.classList.toggle('selected', i === idx);
+    item.classList.toggle('selected', i === clampedIdx);
     const suffix = item.querySelector('.wheel-suffix');
-    if (suffix) suffix.textContent = i === idx ? (type === 'year' ? '年' : type === 'month' ? '月' : '日') : '';
+    if (suffix) suffix.textContent = i === clampedIdx ? (type === 'year' ? '年' : type === 'month' ? '月' : '日') : '';
   });
-  const value = items[idx]?.dataset.value;
+  const value = items[clampedIdx]?.dataset.value;
   if (value === undefined) return;
   if (type === 'year') newGoalYear = Number(value);
   if (type === 'month') newGoalMonth = Number(value);
@@ -716,12 +719,22 @@ async function saveGoalNew() {
 }
 
 // ════════════════════════════════
-// GOAL DETAIL MODAL
+// GOAL DETAIL MODAL (editable)
 // ════════════════════════════════
 let detailGoalId = null;
+let detailEditing = false;
+let showAddStrategyForm = false;
+let showAddStepFormFor = null; // strategyId or null
+let editStrategyId = null;
+let editStepId = null;
 
 async function openGoalDetail(id) {
   detailGoalId = id;
+  detailEditing = false;
+  showAddStrategyForm = false;
+  showAddStepFormFor = null;
+  editStrategyId = null;
+  editStepId = null;
   await renderGoalDetail();
   document.getElementById('goal-detail-modal').classList.add('open');
 }
@@ -737,68 +750,227 @@ async function renderGoalDetail() {
   const cat = categories.find(c => c.id === goal.category_id);
   const strategies = await getStrategies(goal.id);
   const progress = await getGoalProgress(goal.id);
-
   const body = document.getElementById('goal-detail-body');
-  const stars = Array.from({ length: 5 }, (_, i) =>
-    `<span style="color:${i < goal.importance ? 'var(--star)' : 'var(--star-empty)'}; font-size:14px">${i < goal.importance ? '★' : '☆'}</span>`
-  ).join('');
 
+  // ── Goal info section (view or edit) ──
+  let goalInfoHtml;
+  if (detailEditing) {
+    const catChips = categories.map(c => {
+      const sel = goal.category_id === c.id;
+      return `<button class="cat-chip ${sel ? 'selected' : ''}"
+        style="${sel ? `background:${c.color};border-color:${c.color};color:#FFF` : ''}"
+        onclick="detailSetCat(${c.id})">
+        <div class="cat-chip-icon" style="background:${sel ? 'rgba(255,255,255,0.2)' : c.color + '20'}">${c.icon}</div>
+        ${c.name}</button>`;
+    }).join('');
+    const stars = Array.from({ length: 5 }, (_, i) =>
+      `<button class="star-btn ${i < goal.importance ? 'filled' : ''}" onclick="detailSetImportance(${i + 1})" style="font-size:24px">${i < goal.importance ? '★' : '☆'}</button>`
+    ).join('');
+
+    goalInfoHtml = `
+      <div class="goal-detail-section">
+        <div class="form-section">
+          <div class="form-label">📁 カテゴリ</div>
+          <div class="cat-chips">${catChips}</div>
+        </div>
+        <div class="goal-edit-row">
+          <label>タイトル</label>
+          <input id="detail-edit-title" value="${escAttr(goal.title)}">
+        </div>
+        <div class="goal-edit-row">
+          <label>重要度</label>
+          <div style="display:flex;gap:4px">${stars}</div>
+        </div>
+        <div class="goal-edit-row">
+          <label>期限</label>
+          <input id="detail-edit-deadline" type="date" value="${goal.deadline}">
+        </div>
+        <div class="goal-edit-row">
+          <label>ステータス</label>
+          <select id="detail-edit-status">
+            <option value="not_started" ${goal.status === 'not_started' ? 'selected' : ''}>未着手</option>
+            <option value="in_progress" ${goal.status === 'in_progress' ? 'selected' : ''}>進行中</option>
+            <option value="completed" ${goal.status === 'completed' ? 'selected' : ''}>完了</option>
+            <option value="on_hold" ${goal.status === 'on_hold' ? 'selected' : ''}>保留</option>
+          </select>
+        </div>
+        <div class="goal-edit-row" style="align-items:flex-start">
+          <label style="margin-top:8px">メモ</label>
+          <textarea id="detail-edit-memo" rows="3" style="min-height:60px">${escHtml(goal.memo || '')}</textarea>
+        </div>
+        <div class="goal-edit-actions">
+          <button class="btn-cancel" onclick="detailEditing=false;renderGoalDetail()">キャンセル</button>
+          <button class="btn-confirm" onclick="saveGoalEdit()">保存</button>
+        </div>
+      </div>`;
+  } else {
+    const stars = Array.from({ length: 5 }, (_, i) =>
+      `<span style="color:${i < goal.importance ? 'var(--star)' : 'var(--star-empty)'}; font-size:14px">${i < goal.importance ? '★' : '☆'}</span>`
+    ).join('');
+    const days = getDaysUntil(goal.deadline);
+    const daysText = days < 0 ? `${Math.abs(days)}日超過` : days === 0 ? '今日' : `あと${days}日`;
+
+    goalInfoHtml = `
+      <div class="goal-detail-section">
+        ${cat ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div class="goal-cat-badge" style="background:${cat.color}20">${cat.icon}</div>
+          <span style="font-size:13px;color:${cat.color};font-weight:600">${cat.name}</span>
+        </div>` : ''}
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">${escHtml(goal.title)}</h2>
+        <div style="margin-bottom:8px">${stars}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:4px">期限: ${goal.deadline}（${daysText}）</div>
+        <div style="margin-bottom:8px"><span class="status-badge status-${goal.status}">${statusLabel(goal.status)}</span></div>
+        ${goal.memo ? `<div style="font-size:13px;color:var(--text2);padding:10px;background:var(--bg);border-radius:10px;margin-bottom:8px">${escHtml(goal.memo)}</div>` : ''}
+        ${progress.total > 0 ? `<div style="font-size:12px;color:var(--text2)">進捗: ${progress.completed}/${progress.total} (${progress.percent}%)</div>
+          <div class="stats-bar-track" style="margin-top:6px"><div class="stats-bar-fill" style="width:${progress.percent}%;background:var(--accent)">${progress.percent}%</div></div>` : ''}
+        <button onclick="detailEditing=true;renderGoalDetail()" style="margin-top:12px;color:var(--accent);font-size:13px;font-weight:600">✏️ 編集する</button>
+      </div>`;
+  }
+
+  // ── Strategies & Steps ──
   let strategiesHtml = '';
   for (const s of strategies) {
     const steps = await getSteps(s.id);
     const sProgress = await getStrategyProgress(s.id);
-    const stepsHtml = steps.map(st => `
-      <div class="step-item">
-        <button class="step-checkbox ${st.status === 'completed' ? 'completed' : ''}"
-          onclick="toggleStep(${st.id})">${st.status === 'completed' ? '✓' : ''}</button>
-        <span class="step-title ${st.status === 'completed' ? 'completed' : ''}">${escHtml(st.title)}</span>
-        <button onclick="deleteStepAction(${st.id})" style="color:var(--text3);font-size:12px">✕</button>
-      </div>
-    `).join('');
+
+    // Strategy header (editable or view)
+    let sHeaderHtml;
+    if (editStrategyId === s.id) {
+      sHeaderHtml = `
+        <div class="inline-add-form" style="margin-bottom:10px">
+          <div class="form-row"><div class="form-row-label">タイトル</div>
+            <input id="edit-strategy-title" value="${escAttr(s.title)}"></div>
+          <div class="form-row"><div class="form-row-label">期限</div>
+            <input id="edit-strategy-deadline" type="date" value="${s.deadline}"></div>
+          <div class="form-row"><div class="form-row-label">メモ</div>
+            <textarea id="edit-strategy-memo">${escHtml(s.memo || '')}</textarea></div>
+          <div class="inline-form-actions">
+            <button class="btn-cancel" onclick="editStrategyId=null;renderGoalDetail()">キャンセル</button>
+            <button class="btn-confirm" onclick="saveStrategyEdit(${s.id})">保存</button>
+          </div>
+        </div>`;
+    } else {
+      sHeaderHtml = `
+        <div class="strategy-header">
+          <div class="strategy-title">${escHtml(s.title)}</div>
+          <div style="display:flex;gap:8px">
+            <button onclick="editStrategyId=${s.id};renderGoalDetail()" style="color:var(--accent);font-size:12px;font-weight:600">編集</button>
+            <button onclick="deleteStrategyAction(${s.id})" style="color:var(--warning);font-size:12px">削除</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+          期限: ${s.deadline} ・ ${sProgress.completed}/${sProgress.total}完了
+          ${s.memo ? ` ・ ${escHtml(s.memo)}` : ''}
+        </div>`;
+    }
+
+    // Steps
+    const stepsHtml = steps.map(st => {
+      if (editStepId === st.id) {
+        return `
+          <div class="inline-add-form" style="margin:8px 0">
+            <div class="form-row"><div class="form-row-label">タイトル</div>
+              <input id="edit-step-title" value="${escAttr(st.title)}"></div>
+            <div class="form-row"><div class="form-row-label">期限</div>
+              <input id="edit-step-deadline" type="date" value="${st.deadline}"></div>
+            <div class="inline-form-actions">
+              <button class="btn-cancel" onclick="editStepId=null;renderGoalDetail()">キャンセル</button>
+              <button class="btn-confirm" onclick="saveStepEdit(${st.id})">保存</button>
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="step-item">
+          <button class="step-checkbox ${st.status === 'completed' ? 'completed' : ''}"
+            onclick="toggleStep(${st.id})">${st.status === 'completed' ? '✓' : ''}</button>
+          <span class="step-title ${st.status === 'completed' ? 'completed' : ''}"
+            onclick="editStepId=${st.id};renderGoalDetail()"
+            style="cursor:pointer">${escHtml(st.title)}</span>
+          <span style="font-size:10px;color:var(--text3);white-space:nowrap">${st.deadline}</span>
+          <button onclick="deleteStepAction(${st.id})" style="color:var(--text3);font-size:12px">✕</button>
+        </div>`;
+    }).join('');
+
+    // Add step form
+    let addStepHtml = '';
+    if (showAddStepFormFor === s.id) {
+      addStepHtml = `
+        <div class="inline-add-form">
+          <div class="form-row"><div class="form-row-label">ステップのタイトル</div>
+            <input id="new-step-title" placeholder="例: 資料を作成する"></div>
+          <div class="form-row"><div class="form-row-label">期限</div>
+            <input id="new-step-deadline" type="date" value="${todayStr()}"></div>
+          <div class="inline-form-actions">
+            <button class="btn-cancel" onclick="showAddStepFormFor=null;renderGoalDetail()">キャンセル</button>
+            <button class="btn-confirm" onclick="saveNewStep(${s.id})">追加</button>
+          </div>
+        </div>`;
+    } else {
+      addStepHtml = `<button class="add-btn-small" onclick="showAddStepFormFor=${s.id};showAddStrategyForm=false;editStepId=null;renderGoalDetail()">＋ ステップ追加</button>`;
+    }
 
     strategiesHtml += `
       <div class="strategy-card">
-        <div class="strategy-header">
-          <div class="strategy-title">${escHtml(s.title)}</div>
-          <button onclick="deleteStrategyAction(${s.id})" style="color:var(--warning);font-size:12px">削除</button>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">期限: ${s.deadline} ・ ${sProgress.completed}/${sProgress.total}完了</div>
+        ${sHeaderHtml}
         ${stepsHtml}
-        <button class="add-btn-small" onclick="addStepPrompt(${s.id})">＋ ステップ追加</button>
+        ${addStepHtml}
       </div>`;
   }
 
-  body.innerHTML = `
-    <div class="goal-detail-section">
-      ${cat ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <div class="goal-cat-badge" style="background:${cat.color}20">${cat.icon}</div>
-        <span style="font-size:13px;color:${cat.color};font-weight:600">${cat.name}</span>
-      </div>` : ''}
-      <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">${escHtml(goal.title)}</h2>
-      <div style="margin-bottom:8px">${stars}</div>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:8px">期限: ${goal.deadline}</div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-        <span style="font-size:12px;color:var(--text2)">ステータス:</span>
-        <select class="status-select" onchange="updateGoalStatus(${goal.id}, this.value)">
-          <option value="not_started" ${goal.status === 'not_started' ? 'selected' : ''}>未着手</option>
-          <option value="in_progress" ${goal.status === 'in_progress' ? 'selected' : ''}>進行中</option>
-          <option value="completed" ${goal.status === 'completed' ? 'selected' : ''}>完了</option>
-          <option value="on_hold" ${goal.status === 'on_hold' ? 'selected' : ''}>保留</option>
-        </select>
-      </div>
-      ${goal.memo ? `<div style="font-size:13px;color:var(--text2);padding:10px;background:var(--bg);border-radius:10px">${escHtml(goal.memo)}</div>` : ''}
-      ${progress.total > 0 ? `<div style="margin-top:12px;font-size:12px;color:var(--text2)">進捗: ${progress.completed}/${progress.total} (${progress.percent}%)</div>
-        <div class="stats-bar-track" style="margin-top:6px"><div class="stats-bar-fill" style="width:${progress.percent}%;background:var(--accent)">${progress.percent}%</div></div>` : ''}
-    </div>
+  // Add strategy form
+  let addStrategyHtml = '';
+  if (showAddStrategyForm) {
+    addStrategyHtml = `
+      <div class="inline-add-form" style="margin-top:10px">
+        <div class="form-row"><div class="form-row-label">戦略のタイトル</div>
+          <input id="new-strategy-title" placeholder="例: スキルアップ計画"></div>
+        <div class="form-row"><div class="form-row-label">期限</div>
+          <input id="new-strategy-deadline" type="date" value="${todayStr()}"></div>
+        <div class="form-row"><div class="form-row-label">メモ（任意）</div>
+          <textarea id="new-strategy-memo" placeholder="戦略の詳細"></textarea></div>
+        <div class="inline-form-actions">
+          <button class="btn-cancel" onclick="showAddStrategyForm=false;renderGoalDetail()">キャンセル</button>
+          <button class="btn-confirm" onclick="saveNewStrategy(${goal.id})">追加</button>
+        </div>
+      </div>`;
+  } else {
+    addStrategyHtml = `<button class="add-btn-small" onclick="showAddStrategyForm=true;showAddStepFormFor=null;editStrategyId=null;renderGoalDetail()" style="margin-top:8px">＋ 戦略を追加</button>`;
+  }
 
+  body.innerHTML = `
+    ${goalInfoHtml}
     <div class="goal-detail-section">
       <div class="goal-detail-label">📋 戦略 & ステップ</div>
       ${strategiesHtml}
-      <button class="add-btn-small" onclick="addStrategyPrompt(${goal.id})" style="margin-top:8px">＋ 戦略を追加</button>
+      ${addStrategyHtml}
     </div>
-
     <button class="delete-btn" onclick="deleteGoalAction(${goal.id})">この目標を削除</button>
   `;
+}
+
+// ── Goal edit helpers ──
+async function detailSetCat(catId) {
+  const goal = await getGoal(detailGoalId);
+  if (!goal) return;
+  await updateGoal(detailGoalId, { category_id: goal.category_id === catId ? null : catId });
+  await renderGoalDetail();
+}
+
+async function detailSetImportance(v) {
+  await updateGoal(detailGoalId, { importance: v });
+  await renderGoalDetail();
+}
+
+async function saveGoalEdit() {
+  const title = document.getElementById('detail-edit-title')?.value?.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const deadline = document.getElementById('detail-edit-deadline')?.value;
+  const status = document.getElementById('detail-edit-status')?.value;
+  const memo = document.getElementById('detail-edit-memo')?.value?.trim() || '';
+  await updateGoal(detailGoalId, { title, deadline, status, memo });
+  detailEditing = false;
+  await renderGoalDetail();
+  if (currentPage === 'goals') loadGoalsPage();
 }
 
 async function updateGoalStatus(id, status) {
@@ -815,36 +987,45 @@ async function toggleStep(stepId) {
   await renderGoalDetail();
 }
 
-async function addStrategyPrompt(goalId) {
-  const title = prompt('戦略のタイトル:');
-  if (!title?.trim()) return;
-  const deadline = prompt('期限 (YYYY-MM-DD):', todayStr());
-  if (!deadline) return;
+// ── Strategy CRUD ──
+async function saveNewStrategy(goalId) {
+  const title = document.getElementById('new-strategy-title')?.value?.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const deadline = document.getElementById('new-strategy-deadline')?.value || todayStr();
+  const memo = document.getElementById('new-strategy-memo')?.value?.trim() || '';
   const strategies = await getStrategies(goalId);
-  await createStrategy({
-    goal_id: goalId,
-    title: title.trim(),
-    deadline,
-    memo: '',
-    sort_order: strategies.length,
-  });
+  await createStrategy({ goal_id: goalId, title, deadline, memo, sort_order: strategies.length });
+  showAddStrategyForm = false;
   await renderGoalDetail();
 }
 
-async function addStepPrompt(strategyId) {
-  const title = prompt('ステップのタイトル:');
-  if (!title?.trim()) return;
-  const deadline = prompt('期限 (YYYY-MM-DD):', todayStr());
-  if (!deadline) return;
+async function saveStrategyEdit(id) {
+  const title = document.getElementById('edit-strategy-title')?.value?.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const deadline = document.getElementById('edit-strategy-deadline')?.value;
+  const memo = document.getElementById('edit-strategy-memo')?.value?.trim() || '';
+  await updateStrategy(id, { title, deadline, memo });
+  editStrategyId = null;
+  await renderGoalDetail();
+}
+
+// ── Step CRUD ──
+async function saveNewStep(strategyId) {
+  const title = document.getElementById('new-step-title')?.value?.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const deadline = document.getElementById('new-step-deadline')?.value || todayStr();
   const steps = await getSteps(strategyId);
-  await createStep({
-    strategy_id: strategyId,
-    title: title.trim(),
-    deadline,
-    status: 'not_started',
-    memo: '',
-    sort_order: steps.length,
-  });
+  await createStep({ strategy_id: strategyId, title, deadline, status: 'not_started', memo: '', sort_order: steps.length });
+  showAddStepFormFor = null;
+  await renderGoalDetail();
+}
+
+async function saveStepEdit(id) {
+  const title = document.getElementById('edit-step-title')?.value?.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const deadline = document.getElementById('edit-step-deadline')?.value;
+  await updateStep(id, { title, deadline });
+  editStepId = null;
   await renderGoalDetail();
 }
 
