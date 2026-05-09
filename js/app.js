@@ -594,13 +594,11 @@ function renderGoalNewModal(categories) {
       onclick="newGoalSetPrecision('${t.key}')">${t.label}まで</button>
   `).join('');
 
-  // Date wheels
-  const yearOptions = renderWheelOptions(newGoalYear - 2, 11, newGoalYear, '年');
+  // Date stepper
   const showMonth = newGoalData.precision !== 'year';
   const showDay = newGoalData.precision === 'day';
-  const monthOptions = showMonth ? renderWheelOptions(1, 12, newGoalMonth, '月', true) : '';
   const daysInMonth = getMonthDays(newGoalYear, newGoalMonth);
-  const dayOptions = showDay ? renderWheelOptions(1, daysInMonth, Math.min(newGoalDay, daysInMonth), '日', true) : '';
+  if (newGoalDay > daysInMonth) newGoalDay = daysInMonth;
 
   let precisionHint = '';
   if (newGoalData.precision === 'year') precisionHint = `<div class="precision-hint">${newGoalYear}年末まで</div>`;
@@ -622,18 +620,21 @@ function renderGoalNewModal(categories) {
     <div class="form-section">
       <div class="form-label">📅 期限</div>
       <div class="precision-tabs">${precTabs}</div>
-      <div class="date-picker-container">
-        <div class="wheel-wrapper" style="width:80px" id="wheel-year">
-          <div class="wheel-highlight"></div>
-          <div class="wheel-scroll" onscroll="onWheelScroll(this, 'year')">${yearOptions}</div>
+      <div class="date-stepper-container">
+        <div class="date-stepper">
+          <button class="stepper-btn" onclick="stepDate('year',-1)">‹</button>
+          <div class="stepper-value"><span class="stepper-num">${newGoalYear}</span><span class="stepper-unit">年</span></div>
+          <button class="stepper-btn" onclick="stepDate('year',1)">›</button>
         </div>
-        ${showMonth ? `<div class="wheel-wrapper" style="width:56px" id="wheel-month">
-          <div class="wheel-highlight"></div>
-          <div class="wheel-scroll" onscroll="onWheelScroll(this, 'month')">${monthOptions}</div>
+        ${showMonth ? `<div class="date-stepper">
+          <button class="stepper-btn" onclick="stepDate('month',-1)">‹</button>
+          <div class="stepper-value"><span class="stepper-num">${String(newGoalMonth).padStart(2,'0')}</span><span class="stepper-unit">月</span></div>
+          <button class="stepper-btn" onclick="stepDate('month',1)">›</button>
         </div>` : ''}
-        ${showDay ? `<div class="wheel-wrapper" style="width:56px" id="wheel-day">
-          <div class="wheel-highlight"></div>
-          <div class="wheel-scroll" onscroll="onWheelScroll(this, 'day')">${dayOptions}</div>
+        ${showDay ? `<div class="date-stepper">
+          <button class="stepper-btn" onclick="stepDate('day',-1)">‹</button>
+          <div class="stepper-value"><span class="stepper-num">${String(newGoalDay).padStart(2,'0')}</span><span class="stepper-unit">日</span></div>
+          <button class="stepper-btn" onclick="stepDate('day',1)">›</button>
         </div>` : ''}
       </div>
       ${precisionHint}
@@ -643,58 +644,22 @@ function renderGoalNewModal(categories) {
       <textarea class="form-input form-textarea" id="goal-new-memo" placeholder="目標の詳細やメモ" oninput="newGoalData.memo=this.value">${escHtml(newGoalData.memo)}</textarea>
     </div>
   `;
-
-  // Scroll wheels to correct position after render
-  requestAnimationFrame(() => {
-    scrollWheelTo('wheel-year', newGoalYear - (newGoalYear - 2), '年');
-    if (showMonth) scrollWheelTo('wheel-month', newGoalMonth - 1, '月');
-    if (showDay) scrollWheelTo('wheel-day', Math.min(newGoalDay, daysInMonth) - 1, '日');
-  });
 }
 
-function renderWheelOptions(start, count, selected, suffix, padZero) {
-  let html = '<div style="height:40px"></div>'; // top padding
-  for (let i = 0; i < count; i++) {
-    const v = start + i;
-    const label = padZero ? String(v).padStart(2, '0') : String(v);
-    // Don't set selected class here; scrollWheelTo + syncWheelSelection handles it
-    html += `<div class="wheel-item" data-value="${v}">${label}<span class="wheel-suffix"></span></div>`;
+function stepDate(type, dir) {
+  if (type === 'year') {
+    newGoalYear += dir;
+  } else if (type === 'month') {
+    newGoalMonth += dir;
+    if (newGoalMonth < 1) { newGoalMonth = 12; newGoalYear--; }
+    if (newGoalMonth > 12) { newGoalMonth = 1; newGoalYear++; }
+  } else if (type === 'day') {
+    const max = getMonthDays(newGoalYear, newGoalMonth);
+    newGoalDay += dir;
+    if (newGoalDay < 1) { newGoalDay = max; }
+    if (newGoalDay > max) { newGoalDay = 1; }
   }
-  html += '<div style="height:40px"></div>'; // bottom padding
-  return html;
-}
-
-function scrollWheelTo(wrapperId, index, suffix) {
-  const wrapper = document.getElementById(wrapperId);
-  if (!wrapper) return;
-  const scroll = wrapper.querySelector('.wheel-scroll');
-  if (!scroll) return;
-  // Item N at highlight (middle row): scrollTop = N * 40
-  scroll.scrollTop = index * 40;
-  // Sync selected class to the correct item
-  const items = scroll.querySelectorAll('.wheel-item');
-  items.forEach((item, i) => {
-    item.classList.toggle('selected', i === index);
-    const sfx = item.querySelector('.wheel-suffix');
-    if (sfx) sfx.textContent = i === index ? (suffix || '') : '';
-  });
-}
-
-function onWheelScroll(el, type) {
-  // scrollTop = N*40 means item N is at the highlight (middle row)
-  const idx = Math.round(el.scrollTop / 40);
-  const items = el.querySelectorAll('.wheel-item');
-  const clampedIdx = Math.max(0, Math.min(idx, items.length - 1));
-  items.forEach((item, i) => {
-    item.classList.toggle('selected', i === clampedIdx);
-    const suffix = item.querySelector('.wheel-suffix');
-    if (suffix) suffix.textContent = i === clampedIdx ? (type === 'year' ? '年' : type === 'month' ? '月' : '日') : '';
-  });
-  const value = items[clampedIdx]?.dataset.value;
-  if (value === undefined) return;
-  if (type === 'year') newGoalYear = Number(value);
-  if (type === 'month') newGoalMonth = Number(value);
-  if (type === 'day') newGoalDay = Number(value);
+  getCategories().then(cats => renderGoalNewModal(cats));
 }
 
 async function newGoalSetCat(id) {
