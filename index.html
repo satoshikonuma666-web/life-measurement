@@ -10,7 +10,7 @@
   <title>Life計測</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=4">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -205,8 +205,22 @@
 
 </div>
 
-<script src="js/utils.js?v=3"></script>
-<script src="js/db.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script>
+// Force clear old Service Worker cache and re-register
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    registrations.forEach(function(reg) { reg.unregister(); });
+  }).then(function() {
+    return caches.keys();
+  }).then(function(keys) {
+    return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+  }).then(function() {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+<script src="js/utils.js?v=4"></script>
+<script src="js/db.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>
