@@ -196,7 +196,8 @@
       <div class="modal-header">
         <button class="modal-close-btn" onclick="closeGoalDetail()">✕</button>
         <div class="modal-header-title">目標の詳細</div>
-        <div style="width:60px"></div>
+        <button id="goal-detail-save-btn" class="modal-save-btn" onclick="saveGoalDetailFromHeader()" style="display:none">保存</button>
+        <div id="goal-detail-spacer" style="width:60px"></div>
       </div>
       <div class="modal-body" id="goal-detail-body"></div>
     </div>

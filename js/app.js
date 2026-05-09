@@ -669,8 +669,8 @@ function scrollWheelTo(wrapperId, index, suffix) {
   if (!wrapper) return;
   const scroll = wrapper.querySelector('.wheel-scroll');
   if (!scroll) return;
-  // 40px top padding + index * 40px item height
-  scroll.scrollTop = 40 + index * 40;
+  // Item N at highlight (middle row): scrollTop = N * 40
+  scroll.scrollTop = index * 40;
   // Sync selected class to the correct item
   const items = scroll.querySelectorAll('.wheel-item');
   items.forEach((item, i) => {
@@ -681,8 +681,8 @@ function scrollWheelTo(wrapperId, index, suffix) {
 }
 
 function onWheelScroll(el, type) {
-  // Account for 40px top padding
-  const idx = Math.round((el.scrollTop - 40) / 40);
+  // scrollTop = N*40 means item N is at the highlight (middle row)
+  const idx = Math.round(el.scrollTop / 40);
   const items = el.querySelectorAll('.wheel-item');
   const clampedIdx = Math.max(0, Math.min(idx, items.length - 1));
   items.forEach((item, i) => {
@@ -767,6 +767,14 @@ async function renderGoalDetail() {
   const strategies = await getStrategies(goal.id);
   const progress = await getGoalProgress(goal.id);
   const body = document.getElementById('goal-detail-body');
+
+  // Toggle header save button visibility
+  const saveBtn = document.getElementById('goal-detail-save-btn');
+  const spacer = document.getElementById('goal-detail-spacer');
+  if (saveBtn && spacer) {
+    saveBtn.style.display = detailEditing ? '' : 'none';
+    spacer.style.display = detailEditing ? 'none' : '';
+  }
 
   // ── Goal info section (view or edit) ──
   let goalInfoHtml;
@@ -987,6 +995,12 @@ async function saveGoalEdit() {
   detailEditing = false;
   await renderGoalDetail();
   if (currentPage === 'goals') loadGoalsPage();
+  if (currentPage === 'home') loadHomePage();
+}
+
+// Called from header save button
+async function saveGoalDetailFromHeader() {
+  await saveGoalEdit();
 }
 
 async function updateGoalStatus(id, status) {
