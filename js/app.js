@@ -600,10 +600,6 @@ function renderGoalNewModal(categories) {
   const daysInMonth = getMonthDays(newGoalYear, newGoalMonth);
   if (newGoalDay > daysInMonth) newGoalDay = daysInMonth;
 
-  let precisionHint = '';
-  if (newGoalData.precision === 'year') precisionHint = `<div class="precision-hint">${newGoalYear}年末まで</div>`;
-  else if (newGoalData.precision === 'month') precisionHint = `<div class="precision-hint">${newGoalYear}年${newGoalMonth}月末まで</div>`;
-
   body.innerHTML = `
     <div class="form-section">
       <div class="form-label">📁 カテゴリ</div>
@@ -623,21 +619,21 @@ function renderGoalNewModal(categories) {
       <div class="date-stepper-container">
         <div class="date-stepper">
           <button class="stepper-btn" onclick="stepDate('year',-1)">‹</button>
-          <div class="stepper-value"><span class="stepper-num">${newGoalYear}</span><span class="stepper-unit">年</span></div>
+          <div class="stepper-value"><span class="stepper-num" id="stepper-year-val">${newGoalYear}</span><span class="stepper-unit">年</span></div>
           <button class="stepper-btn" onclick="stepDate('year',1)">›</button>
         </div>
         ${showMonth ? `<div class="date-stepper">
           <button class="stepper-btn" onclick="stepDate('month',-1)">‹</button>
-          <div class="stepper-value"><span class="stepper-num">${String(newGoalMonth).padStart(2,'0')}</span><span class="stepper-unit">月</span></div>
+          <div class="stepper-value"><span class="stepper-num" id="stepper-month-val">${String(newGoalMonth).padStart(2,'0')}</span><span class="stepper-unit">月</span></div>
           <button class="stepper-btn" onclick="stepDate('month',1)">›</button>
         </div>` : ''}
         ${showDay ? `<div class="date-stepper">
           <button class="stepper-btn" onclick="stepDate('day',-1)">‹</button>
-          <div class="stepper-value"><span class="stepper-num">${String(newGoalDay).padStart(2,'0')}</span><span class="stepper-unit">日</span></div>
+          <div class="stepper-value"><span class="stepper-num" id="stepper-day-val">${String(newGoalDay).padStart(2,'0')}</span><span class="stepper-unit">日</span></div>
           <button class="stepper-btn" onclick="stepDate('day',1)">›</button>
         </div>` : ''}
       </div>
-      ${precisionHint}
+      <div id="precision-hint" class="precision-hint">${newGoalData.precision === 'year' ? newGoalYear + '年末まで' : newGoalData.precision === 'month' ? newGoalYear + '年' + newGoalMonth + '月末まで' : ''}</div>
     </div>
     <div class="form-section">
       <div class="form-label">📝 メモ</div>
@@ -646,7 +642,13 @@ function renderGoalNewModal(categories) {
   `;
 }
 
+let stepDateLock = false;
 function stepDate(type, dir) {
+  // Prevent double-fire on iPhone touch events
+  if (stepDateLock) return;
+  stepDateLock = true;
+  setTimeout(() => { stepDateLock = false; }, 300);
+
   if (type === 'year') {
     newGoalYear += dir;
   } else if (type === 'month') {
@@ -659,7 +661,25 @@ function stepDate(type, dir) {
     if (newGoalDay < 1) { newGoalDay = max; }
     if (newGoalDay > max) { newGoalDay = 1; }
   }
-  getCategories().then(cats => renderGoalNewModal(cats));
+  // Update DOM directly instead of full re-render to prevent iPhone double-tap issues
+  updateDateStepperDOM();
+}
+
+function updateDateStepperDOM() {
+  const yearEl = document.getElementById('stepper-year-val');
+  const monthEl = document.getElementById('stepper-month-val');
+  const dayEl = document.getElementById('stepper-day-val');
+  const hintEl = document.getElementById('precision-hint');
+  const daysInMonth = getMonthDays(newGoalYear, newGoalMonth);
+  if (newGoalDay > daysInMonth) newGoalDay = daysInMonth;
+  if (yearEl) yearEl.textContent = newGoalYear;
+  if (monthEl) monthEl.textContent = String(newGoalMonth).padStart(2, '0');
+  if (dayEl) dayEl.textContent = String(newGoalDay).padStart(2, '0');
+  if (hintEl) {
+    if (newGoalData.precision === 'year') hintEl.textContent = newGoalYear + '年末まで';
+    else if (newGoalData.precision === 'month') hintEl.textContent = newGoalYear + '年' + newGoalMonth + '月末まで';
+    else hintEl.textContent = '';
+  }
 }
 
 async function newGoalSetCat(id) {
