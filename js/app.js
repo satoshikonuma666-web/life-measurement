@@ -594,11 +594,22 @@ function renderGoalNewModal(categories) {
       onclick="newGoalSetPrecision('${t.key}')">${t.label}まで</button>
   `).join('');
 
-  // Date stepper
+  // Date wheel
   const showMonth = newGoalData.precision !== 'year';
   const showDay = newGoalData.precision === 'day';
   const daysInMonth = getMonthDays(newGoalYear, newGoalMonth);
   if (newGoalDay > daysInMonth) newGoalDay = daysInMonth;
+
+  const yearItems = [];
+  for (let y = 2024; y <= 2035; y++) yearItems.push(y);
+  const monthItems = [];
+  for (let m = 1; m <= 12; m++) monthItems.push(m);
+  const dayItems = [];
+  for (let d = 1; d <= daysInMonth; d++) dayItems.push(d);
+
+  const yearWheel = buildWheelCol('wheel-year', yearItems, newGoalYear, '年');
+  const monthWheel = showMonth ? buildWheelCol('wheel-month', monthItems, newGoalMonth, '月') : '';
+  const dayWheel = showDay ? buildWheelCol('wheel-day', dayItems, newGoalDay, '日') : '';
 
   body.innerHTML = `
     <div class="form-section">
@@ -616,22 +627,8 @@ function renderGoalNewModal(categories) {
     <div class="form-section">
       <div class="form-label">📅 期限</div>
       <div class="precision-tabs">${precTabs}</div>
-      <div class="date-stepper-container">
-        <div class="date-stepper">
-          <button class="stepper-btn" onclick="stepDate('year',-1)">‹</button>
-          <div class="stepper-value"><span class="stepper-num" id="stepper-year-val">${newGoalYear}</span><span class="stepper-unit">年</span></div>
-          <button class="stepper-btn" onclick="stepDate('year',1)">›</button>
-        </div>
-        ${showMonth ? `<div class="date-stepper">
-          <button class="stepper-btn" onclick="stepDate('month',-1)">‹</button>
-          <div class="stepper-value"><span class="stepper-num" id="stepper-month-val">${String(newGoalMonth).padStart(2,'0')}</span><span class="stepper-unit">月</span></div>
-          <button class="stepper-btn" onclick="stepDate('month',1)">›</button>
-        </div>` : ''}
-        ${showDay ? `<div class="date-stepper">
-          <button class="stepper-btn" onclick="stepDate('day',-1)">‹</button>
-          <div class="stepper-value"><span class="stepper-num" id="stepper-day-val">${String(newGoalDay).padStart(2,'0')}</span><span class="stepper-unit">日</span></div>
-          <button class="stepper-btn" onclick="stepDate('day',1)">›</button>
-        </div>` : ''}
+      <div class="wheel-container">
+        ${yearWheel}${monthWheel}${dayWheel}
       </div>
       <div id="precision-hint" class="precision-hint">${newGoalData.precision === 'year' ? newGoalYear + '年末まで' : newGoalData.precision === 'month' ? newGoalYear + '年' + newGoalMonth + '月末まで' : ''}</div>
     </div>
@@ -640,46 +637,86 @@ function renderGoalNewModal(categories) {
       <textarea class="form-input form-textarea" id="goal-new-memo" placeholder="目標の詳細やメモ" oninput="newGoalData.memo=this.value">${escHtml(newGoalData.memo)}</textarea>
     </div>
   `;
+
+  // Init wheels after DOM is rendered
+  requestAnimationFrame(() => {
+    initWheel('wheel-year', yearItems, newGoalYear, v => {
+      newGoalYear = v;
+      updatePrecisionHint();
+      // Refresh day wheel if month days changed
+      if (showDay) refreshDayWheel();
+    });
+    if (showMonth) {
+      initWheel('wheel-month', monthItems, newGoalMonth, v => {
+        newGoalMonth = v;
+        updatePrecisionHint();
+        if (showDay) refreshDayWheel();
+      });
+    }
+    if (showDay) {
+      initWheel('wheel-day', dayItems, newGoalDay, v => { newGoalDay = v; });
+    }
+  });
 }
 
-let stepDateLock = false;
-function stepDate(type, dir) {
-  // Prevent double-fire on iPhone touch events
-  if (stepDateLock) return;
-  stepDateLock = true;
-  setTimeout(() => { stepDateLock = false; }, 300);
-
-  if (type === 'year') {
-    newGoalYear += dir;
-  } else if (type === 'month') {
-    newGoalMonth += dir;
-    if (newGoalMonth < 1) { newGoalMonth = 12; newGoalYear--; }
-    if (newGoalMonth > 12) { newGoalMonth = 1; newGoalYear++; }
-  } else if (type === 'day') {
-    const max = getMonthDays(newGoalYear, newGoalMonth);
-    newGoalDay += dir;
-    if (newGoalDay < 1) { newGoalDay = max; }
-    if (newGoalDay > max) { newGoalDay = 1; }
-  }
-  // Update DOM directly instead of full re-render to prevent iPhone double-tap issues
-  updateDateStepperDOM();
-}
-
-function updateDateStepperDOM() {
-  const yearEl = document.getElementById('stepper-year-val');
-  const monthEl = document.getElementById('stepper-month-val');
-  const dayEl = document.getElementById('stepper-day-val');
+function updatePrecisionHint() {
   const hintEl = document.getElementById('precision-hint');
-  const daysInMonth = getMonthDays(newGoalYear, newGoalMonth);
-  if (newGoalDay > daysInMonth) newGoalDay = daysInMonth;
-  if (yearEl) yearEl.textContent = newGoalYear;
-  if (monthEl) monthEl.textContent = String(newGoalMonth).padStart(2, '0');
-  if (dayEl) dayEl.textContent = String(newGoalDay).padStart(2, '0');
-  if (hintEl) {
-    if (newGoalData.precision === 'year') hintEl.textContent = newGoalYear + '年末まで';
-    else if (newGoalData.precision === 'month') hintEl.textContent = newGoalYear + '年' + newGoalMonth + '月末まで';
-    else hintEl.textContent = '';
+  if (!hintEl) return;
+  if (newGoalData.precision === 'year') hintEl.textContent = newGoalYear + '年末まで';
+  else if (newGoalData.precision === 'month') hintEl.textContent = newGoalYear + '年' + newGoalMonth + '月末まで';
+  else hintEl.textContent = '';
+}
+
+function refreshDayWheel() {
+  const max = getMonthDays(newGoalYear, newGoalMonth);
+  if (newGoalDay > max) newGoalDay = max;
+  const el = document.getElementById('wheel-day');
+  if (!el) return;
+  const dayItems = [];
+  for (let d = 1; d <= max; d++) dayItems.push(d);
+  const spacer = '<div class="wheel-item" style="visibility:hidden">&nbsp;</div>';
+  el.innerHTML = spacer + dayItems.map(v =>
+    `<div class="wheel-item${v === newGoalDay ? ' selected' : ''}" data-val="${v}">${v}<span class="wheel-unit">日</span></div>`
+  ).join('') + spacer;
+  el.scrollTop = (newGoalDay - 1) * 40;
+  initWheel('wheel-day', dayItems, newGoalDay, v => { newGoalDay = v; });
+}
+
+// ── Scroll Wheel helpers ──
+function buildWheelCol(id, items, selectedValue, unit) {
+  const itemsHtml = items.map(v => {
+    const sel = v === selectedValue;
+    return `<div class="wheel-item${sel ? ' selected' : ''}" data-val="${v}">${v}<span class="wheel-unit">${unit}</span></div>`;
+  }).join('');
+  // One blank spacer top + bottom so selected item can be in the highlight zone
+  const spacer = '<div class="wheel-item" style="visibility:hidden">&nbsp;</div>';
+  return `<div class="wheel-col">
+    <div class="wheel-highlight"></div>
+    <div class="wheel-scroll" id="${id}">${spacer}${itemsHtml}${spacer}</div>
+  </div>`;
+}
+
+function initWheel(scrollId, items, selectedValue, onChange) {
+  const el = document.getElementById(scrollId);
+  if (!el) return;
+  const idx = items.indexOf(selectedValue);
+  if (idx >= 0) {
+    el.scrollTop = idx * 40;
   }
+  let timer = null;
+  const handler = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const snapIdx = Math.round(el.scrollTop / 40);
+      const clamped = Math.max(0, Math.min(snapIdx, items.length - 1));
+      // Update selected styling
+      el.querySelectorAll('.wheel-item[data-val]').forEach((item, i) => {
+        item.classList.toggle('selected', i === clamped);
+      });
+      onChange(items[clamped]);
+    }, 80);
+  };
+  el.addEventListener('scroll', handler, { passive: true });
 }
 
 async function newGoalSetCat(id) {

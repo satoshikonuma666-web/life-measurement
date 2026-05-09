@@ -10,7 +10,7 @@
   <title>Life計測</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=7">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -208,7 +208,7 @@
 <script>
 // One-time SW cache migration (v5)
 if ('serviceWorker' in navigator) {
-  var swVer = 'sw-v5';
+  var swVer = 'sw-v7';
   if (!sessionStorage.getItem(swVer)) {
     sessionStorage.setItem(swVer, '1');
     navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -226,8 +226,8 @@ if ('serviceWorker' in navigator) {
   }
 }
 </script>
-<script src="js/utils.js?v=6"></script>
-<script src="js/db.js?v=6"></script>
-<script src="js/app.js?v=6"></script>
+<script src="js/utils.js?v=7"></script>
+<script src="js/db.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>
