@@ -10,7 +10,7 @@
   <title>Life計測</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -206,30 +206,28 @@
 </div>
 
 <script>
-// Force clear old Service Worker cache and auto-reload on SW update
+// One-time SW cache migration (v5)
 if ('serviceWorker' in navigator) {
-  // Listen for SW controller change (new SW took over) → auto-reload
-  var swReloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', function() {
-    if (!swReloading) { swReloading = true; window.location.reload(); }
-  });
-  // Unregister all old SWs, clear all caches, then register fresh
-  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-    var hadOld = registrations.length > 0;
-    return Promise.all(registrations.map(function(r) { return r.unregister(); })).then(function() { return hadOld; });
-  }).then(function(hadOld) {
-    return caches.keys().then(function(keys) {
-      return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-    }).then(function() { return hadOld; });
-  }).then(function(hadOld) {
+  var swVer = 'sw-v5';
+  if (!sessionStorage.getItem(swVer)) {
+    sessionStorage.setItem(swVer, '1');
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      if (regs.length === 0) return false;
+      return Promise.all(regs.map(function(r) { return r.unregister(); }))
+        .then(function() { return caches.keys(); })
+        .then(function(keys) { return Promise.all(keys.map(function(k) { return caches.delete(k); })); })
+        .then(function() { return true; });
+    }).then(function(cleared) {
+      if (cleared) window.location.reload();
+      else navigator.serviceWorker.register('./sw.js');
+    });
+  } else {
     navigator.serviceWorker.register('./sw.js');
-    // If we just cleared old caches, reload to get fresh content
-    if (hadOld) { window.location.reload(); }
-  });
+  }
 }
 </script>
-<script src="js/utils.js?v=5"></script>
-<script src="js/db.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/utils.js?v=6"></script>
+<script src="js/db.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 </body>
 </html>
