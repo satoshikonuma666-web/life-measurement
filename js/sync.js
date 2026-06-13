@@ -1,7 +1,7 @@
 // ===== Firebase Sync Layer =====
-// Firestore を使った端末間データ同期
+// Firestore を使った端末間データ同期（5分間隔バッチ方式）
 
-// ── Firebase Config (ユーザーが設定) ──
+// ── Firebase Config ──
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDxCcdh9FeVl0zLgV44Eh5n4fSFWGyuEBw",
   authDomain: "life-measurement.firebaseapp.com",
@@ -16,7 +16,9 @@ let firebaseAuth = null;
 let firebaseDb = null;
 let currentUser = null;
 let syncEnabled = false;
-let syncListeners = [];
+let syncTimer = null;
+const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let syncDirty = false; // true when local changes need uploading
 
 // ── Initialize Firebase ──
 function initFirebase() {
@@ -33,9 +35,9 @@ function initFirebase() {
       syncEnabled = !!user;
       updateSyncUI();
       if (user) {
-        startRealtimeSync();
+        startPeriodicSync();
       } else {
-        stopRealtimeSync();
+        stopPeriodicSync();
       }
     });
     return true;
@@ -52,7 +54,6 @@ async function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     await firebaseAuth.signInWithPopup(provider);
   } catch (e) {
-    // popup blocked on mobile → try redirect
     if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request') {
       const provider = new firebase.auth.GoogleAuthProvider();
       await firebaseAuth.signInWithRedirect(provider);
@@ -65,6 +66,8 @@ async function signInWithGoogle() {
 
 async function signOut() {
   if (!firebaseAuth) return;
+  // Sync before logout
+  if (syncDirty) await fullSync();
   try {
     await firebaseAuth.signOut();
   } catch (e) {
@@ -73,10 +76,6 @@ async function signOut() {
 }
 
 // ── Firestore paths ──
-function userDocPath() {
-  return `users/${currentUser.uid}`;
-}
-
 function collectionPath(storeName) {
   return `users/${currentUser.uid}/${storeName}`;
 }
@@ -135,14 +134,12 @@ async function fullSync() {
   if (!syncEnabled || !currentUser) return;
   updateSyncStatus('syncing');
   try {
-    // Sync each store
     const stores = ['daily_records', 'goal_categories', 'goals', 'strategies', 'steps'];
     for (const storeName of stores) {
       await mergeStore(storeName);
     }
+    syncDirty = false;
     updateSyncStatus('done');
-    // Refresh current page
-    if (typeof showPage === 'function') showPage(currentPage);
   } catch (e) {
     console.error('Full sync error:', e);
     updateSyncStatus('error');
@@ -150,38 +147,23 @@ async function fullSync() {
 }
 
 async function mergeStore(storeName) {
-  // Get local data
   const store = await getStore(storeName);
   const localData = await promisify(store.getAll());
-
-  // Get cloud data
   const cloudData = await syncDownloadAll(storeName);
 
-  // Build lookup maps
   const localMap = {};
-  localData.forEach(item => {
-    const key = getDocId(storeName, item);
-    localMap[key] = item;
-  });
-
+  localData.forEach(item => { localMap[getDocId(storeName, item)] = item; });
   const cloudMap = {};
-  cloudData.forEach(item => {
-    const key = getDocId(storeName, item);
-    cloudMap[key] = item;
-  });
+  cloudData.forEach(item => { cloudMap[getDocId(storeName, item)] = item; });
 
-  // Merge: newer updated_at wins, or cloud if no timestamp
   const toWriteLocal = [];
   const toWriteCloud = [];
 
-  // Check cloud items → local
   for (const [key, cloudItem] of Object.entries(cloudMap)) {
     const localItem = localMap[key];
     if (!localItem) {
-      // Cloud only → write to local
       toWriteLocal.push(cloudItem);
     } else {
-      // Both exist → compare updated_at
       const cloudTime = cloudItem.updated_at || '';
       const localTime = localItem.updated_at || '';
       if (cloudTime > localTime) {
@@ -192,68 +174,58 @@ async function mergeStore(storeName) {
     }
   }
 
-  // Check local items not in cloud → upload
   for (const [key, localItem] of Object.entries(localMap)) {
     if (!cloudMap[key]) {
       toWriteCloud.push(localItem);
     }
   }
 
-  // Write to local IndexedDB
   if (toWriteLocal.length > 0) {
     const ws = await getStore(storeName, 'readwrite');
-    for (const item of toWriteLocal) {
-      ws.put(item);
-    }
+    for (const item of toWriteLocal) { ws.put(item); }
   }
-
-  // Write to cloud
   if (toWriteCloud.length > 0) {
     await syncUpload(storeName, toWriteCloud);
   }
 }
 
-// ── Realtime sync listener ──
-function startRealtimeSync() {
-  stopRealtimeSync();
-  if (!syncEnabled || !currentUser) return;
-  const stores = ['daily_records', 'goals', 'strategies', 'steps'];
-  for (const storeName of stores) {
-    const unsub = firebaseDb.collection(collectionPath(storeName))
-      .onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(async change => {
-          if (change.type === 'added' || change.type === 'modified') {
-            const data = change.doc.data();
-            const ws = await getStore(storeName, 'readwrite');
-            const existing = await promisify(ws.get(storeName === 'daily_records' ? data.date : data.id));
-            // Only update local if cloud is newer
-            const cloudTime = data.updated_at || '';
-            const localTime = existing?.updated_at || '';
-            if (!existing || cloudTime >= localTime) {
-              const ws2 = await getStore(storeName, 'readwrite');
-              ws2.put(data);
-            }
-          } else if (change.type === 'removed') {
-            const data = change.doc.data();
-            const ws = await getStore(storeName, 'readwrite');
-            const key = storeName === 'daily_records' ? data.date : data.id;
-            ws.delete(key);
-          }
-        });
-        // Refresh UI if on relevant page
-        if (typeof showPage === 'function' && typeof currentPage !== 'undefined') {
-          showPage(currentPage);
-        }
-      }, err => {
-        console.error('Realtime sync error:', storeName, err);
-      });
-    syncListeners.push(unsub);
+// ── Periodic sync (every 5 minutes) ──
+function startPeriodicSync() {
+  stopPeriodicSync();
+  // Initial sync on login
+  fullSync();
+  // Then every 5 minutes
+  syncTimer = setInterval(() => {
+    if (syncDirty) fullSync();
+  }, SYNC_INTERVAL);
+  // Also sync when app becomes visible (e.g. switching back to tab)
+  document.addEventListener('visibilitychange', onVisibilitySync);
+  // Sync before page unload
+  window.addEventListener('beforeunload', onBeforeUnloadSync);
+}
+
+function stopPeriodicSync() {
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+  document.removeEventListener('visibilitychange', onVisibilitySync);
+  window.removeEventListener('beforeunload', onBeforeUnloadSync);
+}
+
+function onVisibilitySync() {
+  if (document.visibilityState === 'visible' && syncEnabled) {
+    fullSync();
   }
 }
 
-function stopRealtimeSync() {
-  syncListeners.forEach(unsub => unsub());
-  syncListeners = [];
+function onBeforeUnloadSync() {
+  if (syncDirty && syncEnabled && currentUser) {
+    // Best-effort sync before closing
+    fullSync();
+  }
+}
+
+// ── Mark dirty (called from db.js hooks) ──
+function markSyncDirty() {
+  syncDirty = true;
 }
 
 // ── UI helpers ──
@@ -305,33 +277,12 @@ function updateSyncStatus(state) {
   }
 }
 
-// ── Hook into db.js save/delete functions ──
-// These are called after local IndexedDB writes to sync to cloud
-
-async function syncAfterSaveRecord(record) {
-  await syncUpload('daily_records', record);
-}
-
-async function syncAfterSaveGoal(goal) {
-  await syncUpload('goals', goal);
-}
-
-async function syncAfterDeleteGoal(id) {
-  await syncDelete('goals', id);
-}
-
-async function syncAfterSaveStrategy(strategy) {
-  await syncUpload('strategies', strategy);
-}
-
-async function syncAfterDeleteStrategy(id) {
-  await syncDelete('strategies', id);
-}
-
-async function syncAfterSaveStep(step) {
-  await syncUpload('steps', step);
-}
-
-async function syncAfterDeleteStep(id) {
-  await syncDelete('steps', id);
-}
+// ── Hooks called from db.js ──
+// Just mark dirty instead of immediate upload
+function syncAfterSaveRecord() { markSyncDirty(); }
+function syncAfterSaveGoal() { markSyncDirty(); }
+function syncAfterDeleteGoal() { markSyncDirty(); }
+function syncAfterSaveStrategy() { markSyncDirty(); }
+function syncAfterDeleteStrategy() { markSyncDirty(); }
+function syncAfterSaveStep() { markSyncDirty(); }
+function syncAfterDeleteStep() { markSyncDirty(); }

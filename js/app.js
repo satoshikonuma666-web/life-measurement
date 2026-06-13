@@ -12,13 +12,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupTabs();
   showPage('home');
   registerSW();
-  // Initialize Firebase sync
+  // Initialize Firebase sync (periodic, not realtime)
   if (typeof initFirebase === 'function') {
-    const ok = initFirebase();
-    if (ok) {
-      // Run initial sync after auth is ready
-      setTimeout(() => { if (syncEnabled) fullSync(); }, 2000);
-    }
+    initFirebase();
   }
 });
 
@@ -978,6 +974,13 @@ async function renderGoalDetail() {
         <div class="inline-add-form" style="margin-bottom:10px">
           <div class="form-row"><div class="form-row-label">タイトル</div>
             <input id="edit-strategy-title" value="${escAttr(s.title)}"></div>
+          <div class="form-row"><div class="form-row-label">ステータス</div>
+            <select id="edit-strategy-status">
+              <option value="not_started" ${(s.status || 'not_started') === 'not_started' ? 'selected' : ''}>未着手</option>
+              <option value="in_progress" ${s.status === 'in_progress' ? 'selected' : ''}>進行中</option>
+              <option value="completed" ${s.status === 'completed' ? 'selected' : ''}>完了</option>
+              <option value="on_hold" ${s.status === 'on_hold' ? 'selected' : ''}>保留</option>
+            </select></div>
           <div class="form-row"><div class="form-row-label">期限</div>
             <input id="edit-strategy-deadline" type="date" value="${s.deadline}"></div>
           <div class="form-row"><div class="form-row-label">メモ</div>
@@ -988,10 +991,14 @@ async function renderGoalDetail() {
           </div>
         </div>`;
     } else {
+      const sStatus = s.status || 'not_started';
       sHeaderHtml = `
         <div class="strategy-header">
-          <div class="strategy-title">${escHtml(s.title)}</div>
-          <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <div class="strategy-title">${escHtml(s.title)}</div>
+            <span class="status-badge status-${sStatus}" style="font-size:10px;margin-top:4px;display:inline-block">${statusLabel(sStatus)}</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
             <button onclick="editStrategyId=${s.id};renderGoalDetail()" style="color:var(--accent);font-size:12px;font-weight:600">編集</button>
             <button onclick="deleteStrategyAction(${s.id})" style="color:var(--warning);font-size:12px">削除</button>
           </div>
@@ -1062,6 +1069,11 @@ async function renderGoalDetail() {
       <div class="inline-add-form" style="margin-top:10px">
         <div class="form-row"><div class="form-row-label">戦略のタイトル</div>
           <input id="new-strategy-title" placeholder="例: スキルアップ計画"></div>
+        <div class="form-row"><div class="form-row-label">ステータス</div>
+          <select id="new-strategy-status">
+            <option value="not_started">未着手</option>
+            <option value="in_progress">進行中</option>
+          </select></div>
         <div class="form-row"><div class="form-row-label">期限</div>
           <input id="new-strategy-deadline" type="date" value="${todayStr()}"></div>
         <div class="form-row"><div class="form-row-label">メモ（任意）</div>
@@ -1135,10 +1147,11 @@ async function toggleStep(stepId) {
 async function saveNewStrategy(goalId) {
   const title = document.getElementById('new-strategy-title')?.value?.trim();
   if (!title) { alert('タイトルを入力してください'); return; }
+  const status = document.getElementById('new-strategy-status')?.value || 'not_started';
   const deadline = document.getElementById('new-strategy-deadline')?.value || todayStr();
   const memo = document.getElementById('new-strategy-memo')?.value?.trim() || '';
   const strategies = await getStrategies(goalId);
-  await createStrategy({ goal_id: goalId, title, deadline, memo, sort_order: strategies.length });
+  await createStrategy({ goal_id: goalId, title, status, deadline, memo, sort_order: strategies.length });
   showAddStrategyForm = false;
   await renderGoalDetail();
 }
@@ -1146,9 +1159,10 @@ async function saveNewStrategy(goalId) {
 async function saveStrategyEdit(id) {
   const title = document.getElementById('edit-strategy-title')?.value?.trim();
   if (!title) { alert('タイトルを入力してください'); return; }
+  const status = document.getElementById('edit-strategy-status')?.value || 'not_started';
   const deadline = document.getElementById('edit-strategy-deadline')?.value;
   const memo = document.getElementById('edit-strategy-memo')?.value?.trim() || '';
-  await updateStrategy(id, { title, deadline, memo });
+  await updateStrategy(id, { title, status, deadline, memo });
   editStrategyId = null;
   await renderGoalDetail();
 }
