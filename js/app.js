@@ -324,6 +324,70 @@ async function loadCalendarPage() {
   const recordMap = {};
   records.forEach(r => { recordMap[r.date] = r; });
   renderCalendarGrid(recordMap);
+  renderCalendarMonthStats(records);
+}
+
+function renderCalendarMonthStats(records) {
+  const el = document.getElementById('calendar-month-stats');
+  if (!el) return;
+
+  const filled = records.filter(r => isRecordFilled(r));
+  const scores = filled.map(r => calculateDayScore(r)).filter(s => s !== null);
+  const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : '-';
+  const best = scores.length > 0 ? Math.round(Math.max(...scores)) : '-';
+  const daysInMonth = getMonthDays(calendarYear, calendarMonth);
+
+  // Category bars
+  const catStats = CATEGORIES.map(cat => {
+    let sum = 0, count = 0;
+    records.forEach(r => {
+      cat.items.forEach(item => {
+        const v = r[item.key];
+        if (v === null || v === undefined) return;
+        if (item.type === 'rating') {
+          const s = RATING_SCORE[v];
+          if (s !== undefined) { sum += (s / 3) * 100; count++; }
+        } else if (item.type === 'number') {
+          sum += (v / item.max) * 100; count++;
+        } else if (item.type === 'hours') {
+          const s = v >= 7 && v <= 8 ? 100 : v >= 6 ? 66 : v >= 5 ? 33 : 0;
+          sum += s; count++;
+        }
+      });
+    });
+    const catAvg = count > 0 ? Math.round(sum / count) : 0;
+    return { label: cat.label, color: cat.color, avg: catAvg };
+  });
+
+  el.innerHTML = `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">📊 ${calendarYear}年${calendarMonth}月の統計</div>
+      <div class="stats-summary-grid" style="margin-bottom:16px">
+        <div class="stats-summary-card">
+          <div class="stats-summary-value">${avg}${typeof avg === 'number' ? '%' : ''}</div>
+          <div class="stats-summary-label">平均スコア</div>
+        </div>
+        <div class="stats-summary-card">
+          <div class="stats-summary-value">${filled.length}<span style="font-size:14px">/${daysInMonth}日</span></div>
+          <div class="stats-summary-label">記録日数</div>
+        </div>
+        <div class="stats-summary-card">
+          <div class="stats-summary-value">${best}${typeof best === 'number' ? '%' : ''}</div>
+          <div class="stats-summary-label">最高スコア</div>
+        </div>
+      </div>
+      <div class="stats-bar-chart">
+        ${catStats.map(cs => `
+          <div class="stats-bar-row">
+            <div class="stats-bar-label">${cs.label}</div>
+            <div class="stats-bar-track">
+              <div class="stats-bar-fill" style="width:${cs.avg}%;background:${cs.color}">${cs.avg > 15 ? cs.avg + '%' : ''}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderCalendarGrid(recordMap) {
