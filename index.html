@@ -10,8 +10,12 @@
   <title>Life計測</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <div id="app">
@@ -98,6 +102,23 @@
       <div class="page-title">設定</div>
     </div>
     <div class="settings-content">
+      <!-- Sync section -->
+      <div class="settings-group">
+        <div class="settings-item">
+          <div class="settings-item-left">
+            <div class="settings-icon" style="background:#D4E2F0">🔄</div>
+            <div>
+              <div class="settings-item-label">端末間同期</div>
+              <div id="sync-user" style="font-size:11px;color:var(--text3)">未ログイン</div>
+            </div>
+          </div>
+          <div id="sync-status" style="font-size:12px;font-weight:600;color:var(--text3)">同期OFF</div>
+        </div>
+        <div class="settings-item" style="justify-content:center;gap:8px">
+          <button id="sync-login-btn" class="sync-btn" onclick="signInWithGoogle()">Googleでログイン</button>
+          <button class="sync-btn sync-btn-secondary" onclick="fullSync()" style="display:none" id="sync-manual-btn">手動同期</button>
+        </div>
+      </div>
       <div class="settings-group">
         <div class="settings-item" onclick="exportData()">
           <div class="settings-item-left">
@@ -208,7 +229,7 @@
 <script>
 // One-time SW cache migration (v5)
 if ('serviceWorker' in navigator) {
-  var swVer = 'sw-v7';
+  var swVer = 'sw-v8';
   if (!sessionStorage.getItem(swVer)) {
     sessionStorage.setItem(swVer, '1');
     navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -226,8 +247,9 @@ if ('serviceWorker' in navigator) {
   }
 }
 </script>
-<script src="js/utils.js?v=7"></script>
-<script src="js/db.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/utils.js?v=8"></script>
+<script src="js/db.js?v=8"></script>
+<script src="js/sync.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
 </body>
 </html>

@@ -71,7 +71,8 @@ async function saveRecord(record) {
   record.updated_at = new Date().toISOString();
   if (!record.created_at) record.created_at = record.updated_at;
   const store = await getStore('daily_records', 'readwrite');
-  return promisify(store.put(record));
+  await promisify(store.put(record));
+  if (typeof syncAfterSaveRecord === 'function') syncAfterSaveRecord(record);
 }
 
 async function getRecordsForMonth(year, month) {
@@ -144,7 +145,10 @@ async function createGoal(goal) {
   goal.created_at = new Date().toISOString();
   goal.updated_at = goal.created_at;
   const store = await getStore('goals', 'readwrite');
-  return promisify(store.add(goal));
+  const id = await promisify(store.add(goal));
+  goal.id = id;
+  if (typeof syncAfterSaveGoal === 'function') syncAfterSaveGoal(goal);
+  return id;
 }
 
 async function updateGoal(id, updates) {
@@ -152,7 +156,8 @@ async function updateGoal(id, updates) {
   const goal = await promisify(store.get(id));
   if (!goal) return;
   Object.assign(goal, updates, { updated_at: new Date().toISOString() });
-  return promisify(store.put(goal));
+  await promisify(store.put(goal));
+  if (typeof syncAfterSaveGoal === 'function') syncAfterSaveGoal(goal);
 }
 
 async function deleteGoal(id) {
@@ -162,7 +167,8 @@ async function deleteGoal(id) {
     await deleteStrategy(s.id);
   }
   const store = await getStore('goals', 'readwrite');
-  return promisify(store.delete(id));
+  await promisify(store.delete(id));
+  if (typeof syncAfterDeleteGoal === 'function') syncAfterDeleteGoal(id);
 }
 
 // ── Strategies ──
@@ -173,16 +179,21 @@ async function getStrategies(goalId) {
 }
 
 async function createStrategy(strategy) {
+  strategy.updated_at = new Date().toISOString();
   const store = await getStore('strategies', 'readwrite');
-  return promisify(store.add(strategy));
+  const id = await promisify(store.add(strategy));
+  strategy.id = id;
+  if (typeof syncAfterSaveStrategy === 'function') syncAfterSaveStrategy(strategy);
+  return id;
 }
 
 async function updateStrategy(id, updates) {
   const store = await getStore('strategies', 'readwrite');
   const s = await promisify(store.get(id));
   if (!s) return;
-  Object.assign(s, updates);
-  return promisify(store.put(s));
+  Object.assign(s, updates, { updated_at: new Date().toISOString() });
+  await promisify(store.put(s));
+  if (typeof syncAfterSaveStrategy === 'function') syncAfterSaveStrategy(s);
 }
 
 async function deleteStrategy(id) {
@@ -191,9 +202,11 @@ async function deleteStrategy(id) {
   const stepStore = await getStore('steps', 'readwrite');
   for (const step of steps) {
     stepStore.delete(step.id);
+    if (typeof syncAfterDeleteStep === 'function') syncAfterDeleteStep(step.id);
   }
   const store = await getStore('strategies', 'readwrite');
-  return promisify(store.delete(id));
+  await promisify(store.delete(id));
+  if (typeof syncAfterDeleteStrategy === 'function') syncAfterDeleteStrategy(id);
 }
 
 // ── Steps ──
@@ -204,21 +217,27 @@ async function getSteps(strategyId) {
 }
 
 async function createStep(step) {
+  step.updated_at = new Date().toISOString();
   const store = await getStore('steps', 'readwrite');
-  return promisify(store.add(step));
+  const id = await promisify(store.add(step));
+  step.id = id;
+  if (typeof syncAfterSaveStep === 'function') syncAfterSaveStep(step);
+  return id;
 }
 
 async function updateStep(id, updates) {
   const store = await getStore('steps', 'readwrite');
   const s = await promisify(store.get(id));
   if (!s) return;
-  Object.assign(s, updates);
-  return promisify(store.put(s));
+  Object.assign(s, updates, { updated_at: new Date().toISOString() });
+  await promisify(store.put(s));
+  if (typeof syncAfterSaveStep === 'function') syncAfterSaveStep(s);
 }
 
 async function deleteStep(id) {
   const store = await getStore('steps', 'readwrite');
-  return promisify(store.delete(id));
+  await promisify(store.delete(id));
+  if (typeof syncAfterDeleteStep === 'function') syncAfterDeleteStep(id);
 }
 
 // ── Goal Progress ──

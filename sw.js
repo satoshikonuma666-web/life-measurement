@@ -1,10 +1,11 @@
-const CACHE_NAME = 'life-measurement-v7';
+const CACHE_NAME = 'life-measurement-v8';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/db.js',
   './js/utils.js',
+  './js/sync.js',
   './js/app.js',
   './manifest.json',
 ];

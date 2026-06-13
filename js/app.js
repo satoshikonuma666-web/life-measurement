@@ -12,6 +12,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupTabs();
   showPage('home');
   registerSW();
+  // Initialize Firebase sync
+  if (typeof initFirebase === 'function') {
+    const ok = initFirebase();
+    if (ok) {
+      // Run initial sync after auth is ready
+      setTimeout(() => { if (syncEnabled) fullSync(); }, 2000);
+    }
+  }
 });
 
 function registerSW() {
