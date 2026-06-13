@@ -218,7 +218,27 @@ a { color: inherit; text-decoration: none; }
   margin-bottom: 14px;
 }
 .shin-card-title { font-size: 13px; font-weight: 600; opacity: 0.9; }
-.shin-card-date { font-size: 11px; opacity: 0.7; }
+.shin-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.shin-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  color: #FFF;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.shin-nav-btn:active { background: rgba(255,255,255,0.4); }
+.shin-card-date { font-size: 12px; opacity: 0.9; text-align: center; }
+.shin-today-hint { display: block; font-size: 9px; opacity: 0.6; margin-top: 1px; }
 .shin-score-row {
   display: flex;
   align-items: flex-end;

@@ -57,27 +57,46 @@ function showPage(page) {
 // ════════════════════════════════
 // HOME PAGE
 // ════════════════════════════════
+let homeDate = todayStr();
+
 async function loadHomePage() {
-  const today = todayStr();
-  const record = await getRecord(today);
-  renderShinCard(record, today);
+  const record = await getRecord(homeDate);
+  renderShinCard(record, homeDate);
   renderCategoryGrid(record);
   await renderNextActions();
   await renderUpcomingGoals();
 }
 
-function renderShinCard(record, today) {
+function homeGoDay(offset) {
+  homeDate = shiftDate(homeDate, offset);
+  loadHomePage();
+}
+
+function homeGoToday() {
+  homeDate = todayStr();
+  loadHomePage();
+}
+
+function renderShinCard(record, dateStr) {
   const el = document.getElementById('shin-card');
   const kokoro = record?.shin_kokoro ?? '-';
   const karada = record?.shin_karada ?? '-';
   const atarashii = record?.shin_atarashii ?? '-';
   const total = (record?.shin_kokoro ?? 0) + (record?.shin_karada ?? 0) + (record?.shin_atarashii ?? 0);
   const hasData = record && (record.shin_kokoro !== null || record.shin_karada !== null || record.shin_atarashii !== null);
+  const isToday = dateStr === todayStr();
+  const titleText = isToday ? '今日の3つの「しん」' : '3つの「しん」';
 
   el.innerHTML = `
     <div class="shin-card-header">
-      <div class="shin-card-title">今日の3つの「しん」</div>
-      <div class="shin-card-date">${formatJapaneseDate(today)}（${getWeekdayJa(today)}）</div>
+      <div class="shin-card-title">${titleText}</div>
+      <div class="shin-date-nav">
+        <button class="shin-nav-btn" onclick="homeGoDay(-1)">‹</button>
+        <div class="shin-card-date" onclick="homeGoToday()" style="cursor:pointer">
+          ${formatJapaneseDate(dateStr)}（${getWeekdayJa(dateStr)}）${isToday ? '' : '<span class="shin-today-hint">タップで今日に戻る</span>'}
+        </div>
+        <button class="shin-nav-btn" onclick="homeGoDay(1)">›</button>
+      </div>
     </div>
     <div class="shin-score-row">
       <div class="shin-score-big">${hasData ? total : '-'}</div>
