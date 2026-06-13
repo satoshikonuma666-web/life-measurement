@@ -56,6 +56,7 @@ function showPage(page) {
 let homeDate = shiftDate(todayStr(), -1);
 
 async function loadHomePage() {
+  await renderLifeGoalsCard();
   const record = await getRecord(homeDate);
   renderShinCard(record, homeDate);
   renderCategoryGrid(record);
@@ -1383,4 +1384,110 @@ function escHtml(s) {
 
 function escAttr(s) {
   return escHtml(s);
+}
+
+// ════════════════════════════════
+// LIFE GOALS (年齢目標 & 今月の目標)
+// ════════════════════════════════
+
+async function getLifeGoals() {
+  const store = await getStore('settings');
+  const ageGoal = await promisify(store.get('age_goal'));
+  const monthGoal = await promisify(store.get('month_goal'));
+  const birthYear = await promisify(store.get('birth_year'));
+  return {
+    ageGoalText: ageGoal?.value || '',
+    monthGoalText: monthGoal?.value || '',
+    birthYear: birthYear?.value || null,
+  };
+}
+
+async function saveLifeGoalsSetting(key, value) {
+  const store = await getStore('settings', 'readwrite');
+  await promisify(store.put({ key, value, updated_at: new Date().toISOString() }));
+}
+
+function calculateAge(birthYear) {
+  if (!birthYear) return null;
+  const now = new Date();
+  return now.getFullYear() - birthYear;
+}
+
+async function renderLifeGoalsCard() {
+  const el = document.getElementById('life-goals-card');
+  if (!el) return;
+  const { ageGoalText, monthGoalText, birthYear } = await getLifeGoals();
+
+  // If nothing set yet, show setup prompt
+  if (!ageGoalText && !monthGoalText) {
+    el.innerHTML = `
+      <div class="life-goals-empty" onclick="openLifeGoalsEdit()">
+        <div style="font-size:13px;color:var(--text3)">🌟 年齢目標・今月の目標を設定しましょう</div>
+      </div>`;
+    return;
+  }
+
+  const age = calculateAge(birthYear);
+  const now = new Date();
+  const monthLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+  const ageLabel = age !== null ? `${age}歳目標` : '年齢目標';
+
+  let html = '';
+  if (ageGoalText) {
+    html += `
+      <div class="life-goal-section" onclick="openLifeGoalsEdit()">
+        <div class="life-goal-label">🎯 ${ageLabel}</div>
+        <div class="life-goal-text">${escHtml(ageGoalText)}</div>
+      </div>`;
+  }
+  if (monthGoalText) {
+    html += `
+      <div class="life-goal-section" onclick="openLifeGoalsEdit()">
+        <div class="life-goal-label">📅 ${monthLabel}の目標</div>
+        <div class="life-goal-text">${escHtml(monthGoalText)}</div>
+      </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function openLifeGoalsEdit() {
+  getLifeGoals().then(({ ageGoalText, monthGoalText, birthYear }) => {
+    const now = new Date();
+    const monthLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+    const body = document.getElementById('life-goals-edit-body');
+    body.innerHTML = `
+      <div class="form-section">
+        <div class="form-label">🎂 生まれ年</div>
+        <input class="form-input" id="edit-birth-year" type="number" placeholder="例: 1990" value="${birthYear || ''}" min="1920" max="2020">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">年齢を自動計算するために使います</div>
+      </div>
+      <div class="form-section">
+        <div class="form-label">🎯 ${calculateAge(birthYear) !== null ? calculateAge(birthYear) + '歳' : '年齢'}目標</div>
+        <textarea class="form-input form-textarea" id="edit-age-goal" rows="3" placeholder="今の年齢で達成したいこと">${escHtml(ageGoalText)}</textarea>
+      </div>
+      <div class="form-section">
+        <div class="form-label">📅 ${monthLabel}の目標</div>
+        <textarea class="form-input form-textarea" id="edit-month-goal" rows="3" placeholder="今月達成したいこと">${escHtml(monthGoalText)}</textarea>
+      </div>
+    `;
+    document.getElementById('life-goals-modal').classList.add('open');
+  });
+}
+
+function closeLifeGoalsEdit() {
+  document.getElementById('life-goals-modal').classList.remove('open');
+}
+
+async function saveLifeGoals() {
+  const birthYear = parseInt(document.getElementById('edit-birth-year')?.value) || null;
+  const ageGoalText = document.getElementById('edit-age-goal')?.value?.trim() || '';
+  const monthGoalText = document.getElementById('edit-month-goal')?.value?.trim() || '';
+
+  await saveLifeGoalsSetting('birth_year', birthYear);
+  await saveLifeGoalsSetting('age_goal', ageGoalText);
+  await saveLifeGoalsSetting('month_goal', monthGoalText);
+
+  closeLifeGoalsEdit();
+  if (currentPage === 'home') loadHomePage();
 }

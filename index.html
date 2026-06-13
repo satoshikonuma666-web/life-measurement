@@ -10,7 +10,7 @@
   <title>Life計測</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=13">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -29,6 +29,7 @@
       </div>
     </div>
     <div class="home-content">
+      <div id="life-goals-card" class="life-goals-card"></div>
       <div id="shin-card" class="shin-card"></div>
       <div class="card">
         <div class="card-title">📊 カテゴリ別</div>
@@ -119,6 +120,16 @@
         <div class="settings-item" style="justify-content:center;gap:8px">
           <button id="sync-login-btn" class="sync-btn" onclick="signInWithGoogle()">Googleでログイン</button>
           <button class="sync-btn sync-btn-secondary" onclick="fullSync()" style="display:none" id="sync-manual-btn">手動同期</button>
+        </div>
+      </div>
+      <!-- Life Goals settings -->
+      <div class="settings-group">
+        <div class="settings-item" onclick="openLifeGoalsEdit()">
+          <div class="settings-item-left">
+            <div class="settings-icon" style="background:#FFF3D4">🌟</div>
+            <div class="settings-item-label">年齢目標・今月の目標を編集</div>
+          </div>
+          <div class="settings-item-arrow">›</div>
         </div>
       </div>
       <div class="settings-group">
@@ -213,6 +224,18 @@
     </div>
   </div>
 
+  <!-- ════════ LIFE GOALS EDIT MODAL ════════ -->
+  <div id="life-goals-modal" class="modal-overlay" onclick="if(event.target===this)closeLifeGoalsEdit()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close-btn" onclick="closeLifeGoalsEdit()">✕</button>
+        <div class="modal-header-title">目標の編集</div>
+        <button class="modal-save-btn" onclick="saveLifeGoals()">保存</button>
+      </div>
+      <div class="modal-body" id="life-goals-edit-body"></div>
+    </div>
+  </div>
+
   <!-- ════════ GOAL DETAIL MODAL ════════ -->
   <div id="goal-detail-modal" class="modal-overlay" onclick="if(event.target===this)closeGoalDetail()">
     <div class="modal-content">
@@ -231,7 +254,7 @@
 <script>
 // One-time SW cache migration (v5)
 if ('serviceWorker' in navigator) {
-  var swVer = 'sw-v12';
+  var swVer = 'sw-v13';
   if (!sessionStorage.getItem(swVer)) {
     sessionStorage.setItem(swVer, '1');
     navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -249,9 +272,9 @@ if ('serviceWorker' in navigator) {
   }
 }
 </script>
-<script src="js/utils.js?v=12"></script>
-<script src="js/db.js?v=12"></script>
-<script src="js/sync.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/utils.js?v=13"></script>
+<script src="js/db.js?v=13"></script>
+<script src="js/sync.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

@@ -202,6 +202,42 @@ a { color: inherit; text-decoration: none; }
 /* ===== Home Page ===== */
 .home-content { padding: 16px; }
 
+/* Life Goals card */
+.life-goals-card:empty { display: none; }
+.life-goals-empty {
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+.life-goal-section {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  border-left: 4px solid var(--accent);
+  cursor: pointer;
+}
+.life-goal-section:last-child { margin-bottom: 0; }
+.life-goal-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.life-goal-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.life-goals-card { margin-bottom: 12px; }
+
 /* 3shin score card */
 .shin-card {
   background: linear-gradient(135deg, var(--accent) 0%, #B89B76 100%);
