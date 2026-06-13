@@ -3,12 +3,12 @@
 
 // ── Firebase Config (ユーザーが設定) ──
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyDxCcdh9FeVl0zLgV44Eh5n4fSFWGyuEBw",
+  authDomain: "life-measurement.firebaseapp.com",
+  projectId: "life-measurement",
+  storageBucket: "life-measurement.firebasestorage.app",
+  messagingSenderId: "713792092808",
+  appId: "1:713792092808:web:a65c8cf40e997253b27d3d"
 };
 
 let firebaseApp = null;
