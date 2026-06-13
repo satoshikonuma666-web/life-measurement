@@ -57,7 +57,7 @@ function showPage(page) {
 // ════════════════════════════════
 // HOME PAGE
 // ════════════════════════════════
-let homeDate = todayStr();
+let homeDate = shiftDate(todayStr(), -1);
 
 async function loadHomePage() {
   const record = await getRecord(homeDate);
@@ -85,7 +85,8 @@ function renderShinCard(record, dateStr) {
   const total = (record?.shin_kokoro ?? 0) + (record?.shin_karada ?? 0) + (record?.shin_atarashii ?? 0);
   const hasData = record && (record.shin_kokoro !== null || record.shin_karada !== null || record.shin_atarashii !== null);
   const isToday = dateStr === todayStr();
-  const titleText = isToday ? '今日の3つの「しん」' : '3つの「しん」';
+  const isYesterday = dateStr === shiftDate(todayStr(), -1);
+  const titleText = isToday ? '今日の3つの「しん」' : isYesterday ? '昨日の3つの「しん」' : '3つの「しん」';
 
   el.innerHTML = `
     <div class="shin-card-header">
